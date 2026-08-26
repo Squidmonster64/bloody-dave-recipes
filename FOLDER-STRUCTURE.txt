@@ -1,0 +1,36 @@
+bloody-dave-recipes-pwa-build-3/
+├── index.html
+├── app.js
+├── styles.css
+├── sw.js
+├── manifest.webmanifest
+├── recipes.json                  # supplied 41-recipe curated dataset
+├── README.md
+├── DEPLOYMENT.md
+├── BUILD-REPORT.md
+├── FOLDER-STRUCTURE.txt
+├── Recipes/                      # 41 supplied Markdown references
+│   ├── BD-0001.md
+│   ├── ...
+│   └── BD-0041.md
+├── Archive/                      # optional; app works without index.json
+│   └── README.md
+├── assets/
+│   └── icons/
+│       ├── icon.svg
+│       ├── icon-192.png
+│       ├── icon-512.png
+│       └── placeholder.svg
+├── docs/
+│   ├── Dataset README.md
+│   ├── Dataset Upload Note.md
+│   └── Recipe Index.md
+├── scripts/
+│   └── validate_data.py
+└── tests/
+    ├── test_data_logic.js
+    └── test_static_files.py
+
+Build 5 additions:
+  cards/BD-0001.pdf ... cards/BD-0041.pdf
+  assets/hero/BD-0001.jpg ... assets/hero/BD-0041.jpg

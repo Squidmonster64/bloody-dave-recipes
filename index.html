@@ -1,0 +1,139 @@
+<!doctype html>
+<html lang="en-AU">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="theme-color" content="#8f1d18">
+  <meta name="description" content="Bloody Dave's installable offline recipe library and combined shopping list">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="apple-mobile-web-app-title" content="Bloody Dave's">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" href="assets/icons/icon-192.png" type="image/png">
+  <link rel="apple-touch-icon" href="assets/icons/icon-192.png">
+  <link rel="stylesheet" href="styles.css?v=recipes-11">
+  <title>Bloody Dave's Recipes</title>
+</head>
+<body>
+<header class="app-header">
+  <button id="backBtn" class="icon-button hidden" aria-label="Back to recipes">←</button>
+  <div class="brand-lockup">
+    <img class="brand-logo" src="assets/bloody_dave_logo.png" alt="Bloody Dave's">
+    <div class="brand-block">
+      <p class="eyebrow">BLOODY DAVE'S</p>
+      <h1>Recipes</h1>
+    </div>
+  </div>
+  <button id="installBtn" class="secondary">Install</button>
+</header>
+<nav class="suite-directory" aria-label="Bloody Dave's Suite"><span>Bloody Dave's Suite</span><a class="current" href="#">Recipes</a><a href="https://fragments.hope-johnstone.com">Fragments</a><a href="https://timer.bloodydaves.com">Stolen Minutes</a><a href="https://list.bloodydaves.com">Get List</a><a href="https://lift.bloodydaves.com">Lift Log</a></nav>
+  <nav id="mainTabs" class="tabs" aria-label="Main sections">
+    <button data-view="library" class="active">Library</button>
+    <button data-view="saved">Saved</button>
+    <button data-view="archive" id="archiveTab">Archive</button>
+    <button data-view="shopping">Shopping <span id="shoppingCount"></span></button>
+  </nav>
+<main>
+  <section id="libraryView" class="view active">
+    <div class="toolbar">
+      <input id="librarySearch" type="search" placeholder="Search title, ingredient, cuisine, source, protein, tag or time…" autocomplete="off">
+      <div class="toolbar-row">
+        <label class="check-label"><input id="favouritesOnly" type="checkbox"> Favourites only</label>
+        <select id="timeFilter" aria-label="Maximum total cooking time">
+          <option value="">Any time</option>
+          <option value="20">≤ 20 min</option>
+          <option value="30">≤ 30 min</option>
+          <option value="45">≤ 45 min</option>
+          <option value="60">≤ 60 min</option>
+          <option value="90">≤ 90 min</option>
+        </select>
+        <select id="sortOrder" aria-label="Sort recipes">
+          <option value="id">Recipe ID</option>
+          <option value="title">Title</option>
+          <option value="time">Cooking time</option>
+          <option value="source">Source</option>
+        </select>
+      </div>
+    </div>
+    <div id="dataWarning" class="warning hidden"></div>
+    <section class="panel meal-plan" aria-labelledby="mealPlanTitle"><div class="panel-heading"><div><h2 id="mealPlanTitle">This week</h2><p class="subtle">Plan locally. Selected recipes can fill the first open days.</p></div><div class="button-row"><button id="addSelectedToWeek" class="secondary">Plan selected</button><button id="exportWeek" class="secondary">Export week</button></div></div><p id="weekPlanStatus" class="status" aria-live="polite"></p><div id="weekPlan" class="week-plan-grid"></div></section>
+    <div id="libraryStatus" class="status" aria-live="polite"></div>
+    <div id="libraryGrid" class="recipe-grid"></div>
+  </section>
+
+  <section id="archiveView" class="view">
+    <div class="toolbar">
+      <input id="archiveSearch" type="search" placeholder="Search optional offline archive…" autocomplete="off">
+    </div>
+    <div id="archiveStatus" class="status" aria-live="polite"></div>
+    <div id="archiveActions" class="panel archive-actions hidden">
+      <div><strong><span id="archiveSelectionCount">0</span> selected for promotion</strong><br><small>Promotions are stored on this device and exported for permanent addition to recipes.json.</small></div>
+      <div class="button-row"><button id="promoteSelected">Promote selected</button><button id="clearArchiveSelection" class="secondary">Clear</button></div>
+    </div>
+    <div id="archiveGrid" class="recipe-grid"></div>
+  </section>
+
+  <section id="savedView" class="view">
+    <section class="panel saved-recipes-panel" aria-labelledby="savedRecipeFormTitle">
+      <div class="panel-heading"><div><h2 id="savedRecipeFormTitle">Keep a recipe link</h2><p class="subtle">Links, tags and notes you want close at hand. They stay on this device.</p></div></div>
+      <form id="savedRecipeForm" class="saved-recipe-form"><input id="savedRecipeId" type="hidden"><label>Recipe name<input id="savedRecipeTitle" required maxlength="160" placeholder="What is it called?"></label><label>Source link<input id="savedRecipeUrl" type="url" maxlength="1000" placeholder="https://..."></label><label>Tags<input id="savedRecipeTags" maxlength="400" placeholder="For example: weeknight, pasta"></label><label class="saved-recipe-notes-field">Notes<textarea id="savedRecipeNotes" rows="4" maxlength="4000" placeholder="What caught your eye, or what would you change?"></textarea></label><div class="button-row"><button>Keep recipe</button><button id="cancelSavedRecipe" class="secondary" type="button">Clear</button></div></form>
+    </section>
+    <div class="toolbar saved-recipes-toolbar"><input id="savedRecipeSearch" type="search" placeholder="Search saved recipe links, tags or notes…" autocomplete="off"><div class="toolbar-row"><button id="exportSavedRecipes" class="secondary" type="button">Export saved recipes</button><label class="import-file secondary">Import Pocket Cookbook<input id="importSavedRecipes" type="file" accept="application/json,.json"></label></div></div>
+    <p id="savedRecipeStatus" class="status" aria-live="polite"></p>
+    <section id="savedRecipeGrid" class="recipe-grid" aria-label="Saved recipes"></section>
+  </section>
+
+  <section id="shoppingView" class="view">
+    <div class="panel">
+      <div class="panel-heading">
+        <div><h2>Combined shopping list</h2><p class="subtle">Every item can be marked Have or Need. Pantry items default to Have but can be switched to Need.</p></div>
+        <button id="clearSelection" class="secondary">Clear recipes</button>
+      </div>
+      <div id="selectedRecipes"></div>
+      <div class="shopping-actions">
+        <button id="printNeed">Print Need list</button>
+        <button id="exportNeed" class="secondary">Export text</button>
+        <button id="exportGetListTransfer" class="secondary">Send to Get List</button>
+        <button id="resetStatuses" class="secondary">Reset Have/Need</button>
+      </div>
+    </div>
+    <div class="shopping-columns">
+      <section><h3>Need</h3><div id="needList"></div></section>
+      <section><h3>Have</h3><div id="haveList"></div></section>
+      <section><h3>Pantry</h3><div id="pantryList"></div></section>
+    </div>
+  </section>
+
+  <section id="detailView" class="view detail-view">
+    <article id="recipeDetail"></article>
+  </section>
+</main>
+<footer class="app-footer"><span>recipes.bloodydaves.com</span><a href="mailto:info@bloodydaves.com">info@bloodydaves.com</a></footer>
+
+<dialog id="installDialog">
+  <form method="dialog">
+    <div class="dialog-heading"><h2>Install Bloody Dave's Recipes</h2><button class="icon-button" value="close" aria-label="Close">×</button></div>
+    <div id="installInstructions"></div>
+    <button value="close">Done</button>
+  </form>
+</dialog>
+
+<template id="recipeCardTemplate">
+  <article class="recipe-card">
+    <button class="card-open-area open" aria-label="Open recipe">
+      <div class="card-image-wrap">
+        <img class="card-image hidden" alt="" loading="lazy">
+        <div class="card-placeholder"><span class="placeholder-protein"></span><strong class="placeholder-mark"></strong></div>
+      </div>
+    </button>
+    <div class="card-body">
+      <div class="card-topline"><span class="pill source"></span><button class="favourite" aria-label="Toggle favourite">☆</button></div>
+      <button class="text-open open"><h2 class="title"></h2><p class="subtitle"></p></button>
+      <p class="meta"></p>
+      <div class="card-actions"><button class="open">Open</button><label class="check-label"><input type="checkbox" class="select-recipe"> Shop</label></div>
+    </div>
+  </article>
+</template>
+<script type="module" src="app.js?v=recipes-11"></script>
+</body>
+</html>
