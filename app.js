@@ -12,7 +12,7 @@ const STORAGE = {
   savedRecipes: 'bd:saved-recipes:v1'
 };
 
-const HERO_ASSET_VERSION = '10';
+const HERO_ASSET_VERSION = '11';
 const HERO_FOCAL = {
   'BD-0012': '42% 48%',
   'BD-0006': '52% 48%',
@@ -473,11 +473,6 @@ function placeholderMark(recipe) {
   return words.slice(0, 2).map(word => word[0]).join('').toUpperCase() || 'BD';
 }
 
-function revealCardImage(image, placeholder) {
-  image.classList.remove('hidden');
-  placeholder.classList.add('hidden');
-}
-
 function showCardPlaceholder(image, placeholder) {
   image.removeAttribute('src');
   image.classList.add('hidden');
@@ -492,17 +487,21 @@ function applyCardImage(node, recipe) {
   $('.placeholder-mark', node).textContent = placeholderMark(recipe);
   applyHeroFocal(wrap, recipe);
   applyHeroFocal(image, recipe);
-  if (!recipe.heroImage) return;
+  if (!recipe.heroImage) {
+    image.classList.add('hidden');
+    placeholder.classList.remove('hidden');
+    return;
+  }
   image.alt = recipe.heroImageSubject || recipe.title;
-  image.classList.add('hidden');
+  image.classList.remove('hidden');
   placeholder.classList.remove('hidden');
   image.onload = () => {
-    if (image.naturalWidth > 0) revealCardImage(image, placeholder);
+    if (image.naturalWidth > 0) placeholder.classList.add('hidden');
     else showCardPlaceholder(image, placeholder);
   };
   image.onerror = () => showCardPlaceholder(image, placeholder);
   image.src = recipe.heroImage;
-  if (image.complete && image.naturalWidth > 0) revealCardImage(image, placeholder);
+  if (image.complete && image.naturalWidth > 0) placeholder.classList.add('hidden');
 }
 
 function recipeCard(recipe, { archive = false } = {}) {

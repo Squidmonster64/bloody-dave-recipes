@@ -38,6 +38,7 @@ assert "aspect-ratio:16/8" not in css.replace(" ", "")
 
 app = (ROOT / "app.js").read_text(encoding="utf-8")
 assert "function showCardPlaceholder" in app
+assert "placeholder.classList.add('hidden')" in app
 assert "image.onerror" in app
 assert "hero.replaceWith" in app
 
