@@ -201,11 +201,40 @@ def extract_from_html(fetch: FetchResult, *, pasted_fallback: str = "") -> Sourc
 
 def extract_from_pasted(url: str, pasted: str) -> SourceFacts:
     content = pasted.encode("utf-8")
+    text = pasted.strip()
+    lines = [ln.strip() for ln in text.splitlines() if ln.strip()]
+    title = lines[0][:160] if lines else "Pasted recipe"
+    ingredients: list[str] = []
+    instructions: list[str] = []
+    section = ""
+    serves = ""
+    for line in lines[1:]:
+        lower = line.lower().rstrip(":")
+        if lower in {"ingredients", "ingredient", "buy", "what you need"}:
+            section = "ingredients"
+            continue
+        if lower in {"method", "methods", "instructions", "directions", "steps"}:
+            section = "instructions"
+            continue
+        if lower.startswith("serves"):
+            serves = line.split(":", 1)[-1].strip() if ":" in line else line.replace("Serves", "").strip()
+            continue
+        if section == "ingredients":
+            ingredients.append(re.sub(r"^[-*•]\s*", "", line))
+        elif section == "instructions":
+            instructions.append(re.sub(r"^\d+[\).\s]+", "", line))
+        elif re.match(r"^[\d½¼¾]", line) or re.search(r"\b(g|ml|tsp|tbsp|cup)\b", line, re.I):
+            ingredients.append(line)
+        elif re.match(r"^\d+[\).]", line):
+            instructions.append(re.sub(r"^\d+[\).\s]+", "", line))
     return SourceFacts(
         submitted_url=url,
         resolved_url=url,
-        title=(pasted.splitlines()[0].strip()[:160] if pasted.strip() else "Pasted recipe"),
+        title=title,
+        serves=serves,
+        ingredients=ingredients,
+        instructions=instructions,
         extraction_method="pasted_source",
         source_hash="sha256:" + hashlib.sha256(content).hexdigest(),
-        raw_excerpt=pasted.strip()[:50_000],
+        raw_excerpt=text[:50_000],
     )
