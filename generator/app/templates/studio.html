@@ -83,6 +83,7 @@
       <p class="status">Paste a recipe URL. Optional changes steer adaptation. Publish writes one atomic commit to the canonical library.</p>
       <label>Recipe URL <input id="url" type="url" placeholder="https://..." required></label>
       <label>Changes / instructions <textarea id="instructions" placeholder="Remove beef, Australianise, use normal Coles items, serve 4..."></textarea></label>
+      <label>Paste recipe text (optional — used if the URL cannot be read) <textarea id="initialPaste" placeholder="Paste the full recipe here if you already have it..."></textarea></label>
       <label class="row" style="font-weight:600"><input id="createVariant" type="checkbox"> Create variant if source already exists</label>
       <div class="row">
         <button id="generateBtn" type="button">Generate recipe</button>
@@ -270,15 +271,18 @@
       const url = document.getElementById('url').value.trim();
       const instructions = document.getElementById('instructions').value.trim();
       const create_variant = document.getElementById('createVariant').checked;
+      const pasted_source = document.getElementById('initialPaste').value.trim();
       document.getElementById('createStatus').textContent = 'Starting…';
+      document.getElementById('createStatus').className = 'status';
       try {
         const res = await api('/api/v1/jobs', {
           method: 'POST',
-          body: JSON.stringify({ url, instructions, create_variant })
+          body: JSON.stringify({ url, instructions, create_variant, pasted_source })
         });
         jobId = res.job_id;
         hide('createPanel');
         show('progressPanel');
+        if (pollTimer) clearInterval(pollTimer);
         pollTimer = setInterval(pollJob, 1500);
         pollJob();
       } catch (err) {
@@ -289,11 +293,20 @@
 
     document.getElementById('continuePasteBtn').addEventListener('click', async () => {
       const pasted_source = document.getElementById('pastedSource').value;
-      await api(`/api/v1/jobs/${jobId}/continue-pasted`, {
-        method: 'POST',
-        body: JSON.stringify({ pasted_source })
-      });
-      hide('pasteBox');
+      document.getElementById('progressError').textContent = '';
+      try {
+        await api(`/api/v1/jobs/${jobId}/continue-pasted`, {
+          method: 'POST',
+          body: JSON.stringify({ pasted_source })
+        });
+        hide('pasteBox');
+        document.getElementById('progressText').textContent = 'Continuing with pasted recipe text…';
+        if (pollTimer) clearInterval(pollTimer);
+        pollTimer = setInterval(pollJob, 1500);
+        pollJob();
+      } catch (err) {
+        document.getElementById('progressError').textContent = err.message;
+      }
     });
 
     document.getElementById('retryBtn').addEventListener('click', () => {
