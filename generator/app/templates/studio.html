@@ -1,0 +1,371 @@
+<!doctype html>
+<html lang="en-AU">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Bloody Dave's — Recipe Studio</title>
+  <style>
+    :root {
+      --cream: #f7f4ed;
+      --white: #fffdfc;
+      --orange: #e44713;
+      --green: #4e7a2b;
+      --ink: #2c2723;
+      --muted: #6c625b;
+      --line: #ded5c8;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font: 16px/1.45 "Trebuchet MS", "Segoe UI", sans-serif;
+      color: var(--ink);
+      background:
+        radial-gradient(circle at 12% 0%, rgba(228,71,19,.12), transparent 40%),
+        radial-gradient(circle at 90% 10%, rgba(78,122,43,.12), transparent 35%),
+        linear-gradient(180deg, #fbf8f2, var(--cream));
+      min-height: 100vh;
+    }
+    header {
+      display: flex; justify-content: space-between; align-items: center; gap: 1rem;
+      padding: 1rem 1.25rem; border-bottom: 1px solid var(--line);
+      background: rgba(255,253,252,.92); position: sticky; top: 0; backdrop-filter: blur(8px);
+    }
+    .brand { font-weight: 900; letter-spacing: .04em; color: var(--orange); }
+    main { max-width: 980px; margin: 0 auto; padding: 1.25rem; }
+    .panel {
+      background: var(--white); border: 1px solid var(--line); border-radius: 1rem;
+      padding: 1.25rem; box-shadow: 0 16px 40px rgba(44,39,35,.06); margin-bottom: 1rem;
+    }
+    h1 { margin: 0 0 .35rem; font-size: clamp(1.6rem, 4vw, 2.2rem); }
+    label { display: grid; gap: .35rem; font-weight: 700; margin-bottom: .9rem; }
+    input, textarea, button, select {
+      font: inherit; border-radius: .7rem; border: 1px solid var(--line); padding: .8rem .9rem;
+    }
+    textarea { min-height: 110px; resize: vertical; }
+    button {
+      border: 0; background: var(--orange); color: #fff; font-weight: 800; cursor: pointer;
+    }
+    button.secondary { background: #ece5dc; color: var(--ink); }
+    button:disabled { opacity: .55; cursor: not-allowed; }
+    .row { display: flex; gap: .6rem; flex-wrap: wrap; }
+    .status { color: var(--muted); min-height: 1.4em; }
+    .error { color: #9d321d; font-weight: 700; }
+    .ok { color: var(--green); font-weight: 800; }
+    .grid-2 { display: grid; gap: 1rem; }
+    @media (min-width: 860px) { .grid-2 { grid-template-columns: 1fr 1fr; } }
+    .preview img, .preview object { width: 100%; border-radius: .8rem; border: 1px solid var(--line); background: #fff; }
+    .method-list, .ing-list { margin: 0; padding-left: 1.1rem; }
+    .hidden { display: none !important; }
+    .login-box { max-width: 420px; margin: 4rem auto; }
+    .pill { display: inline-block; padding: .2rem .55rem; border-radius: 999px; background: #eef4e7; color: var(--green); font-size: .8rem; font-weight: 800; }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="brand">BLOODY DAVE'S — RECIPE STUDIO</div>
+    <div class="row">
+      <a href="{{PUBLIC_URL}}" style="color:var(--orange);font-weight:800;text-decoration:none">Open Recipes PWA</a>
+      <form id="logoutForm" method="post" action="/logout" class="hidden"><button class="secondary" type="submit">Log out</button></form>
+    </div>
+  </header>
+  <main>
+    <section id="loginPanel" class="panel login-box hidden">
+      <h1>Admin login</h1>
+      <p class="status">Recipe Studio is private. Enter the admin password.</p>
+      <form method="post" action="/login">
+        <label>Password <input type="password" name="password" required autocomplete="current-password"></label>
+        <button type="submit">Enter Studio</button>
+      </form>
+    </section>
+
+    <section id="createPanel" class="panel hidden">
+      <h1>Add recipe</h1>
+      <p class="status">Paste a recipe URL. Optional changes steer adaptation. Publish writes one atomic commit to the canonical library.</p>
+      <label>Recipe URL <input id="url" type="url" placeholder="https://..." required></label>
+      <label>Changes / instructions <textarea id="instructions" placeholder="Remove beef, Australianise, use normal Coles items, serve 4..."></textarea></label>
+      <label class="row" style="font-weight:600"><input id="createVariant" type="checkbox"> Create variant if source already exists</label>
+      <div class="row">
+        <button id="generateBtn" type="button">Generate recipe</button>
+      </div>
+      <p id="createStatus" class="status" aria-live="polite"></p>
+    </section>
+
+    <section id="progressPanel" class="panel hidden">
+      <h2>Generation progress</h2>
+      <p><span class="pill" id="jobStatus">QUEUED</span></p>
+      <p id="progressText" class="status"></p>
+      <p id="progressError" class="error"></p>
+      <div id="pasteBox" class="hidden">
+        <label>Paste recipe text<textarea id="pastedSource" placeholder="Paste the full recipe here..."></textarea></label>
+        <button id="continuePasteBtn" type="button">Continue with pasted text</button>
+      </div>
+      <button id="retryBtn" class="secondary hidden" type="button">Retry</button>
+    </section>
+
+    <section id="reviewPanel" class="panel hidden">
+      <h2>Review</h2>
+      <p class="status">Next ID candidate: <strong id="candidateId">—</strong></p>
+      <div class="grid-2">
+        <div>
+          <label>Title <input id="r_title"></label>
+          <label>Subtitle / hook <input id="r_subtitle"></label>
+          <label>Serves <input id="r_serves"></label>
+          <label>Prep / cook / total
+            <div class="row">
+              <input id="r_prep" placeholder="Prep">
+              <input id="r_cook" placeholder="Cook">
+              <input id="r_total" placeholder="Total">
+            </div>
+          </label>
+          <label>Cuisine <input id="r_cuisine"></label>
+          <label>Protein <input id="r_protein"></label>
+          <label>Tags (comma separated) <input id="r_tags"></label>
+          <label>Allergens <textarea id="r_allergens"></textarea></label>
+          <label>Nutrition <textarea id="r_nutrition"></textarea></label>
+          <label>Bloody Dave quote <textarea id="r_quote"></textarea></label>
+          <label>Source credit <input id="r_credit"></label>
+          <p class="status">Source: <span id="r_source"></span> · <a id="r_source_url" href="#" target="_blank" rel="noopener">open</a></p>
+        </div>
+        <div>
+          <label>BUY (one per line) <textarea id="r_buy"></textarea></label>
+          <label>PANTRY (one per line) <textarea id="r_pantry"></textarea></label>
+          <label>Method (6 stages: Heading | Directions) <textarea id="r_method" style="min-height:220px"></textarea></label>
+          <div class="row">
+            <button id="saveEditsBtn" class="secondary" type="button">Save edits</button>
+            <button id="regenImageBtn" class="secondary" type="button">Regenerate image</button>
+            <button id="regenCardBtn" class="secondary" type="button">Regenerate card</button>
+            <button id="rerunQaBtn" class="secondary" type="button">Re-run QA</button>
+          </div>
+        </div>
+      </div>
+      <div class="grid-2" style="margin-top:1rem">
+        <div class="preview">
+          <h3>Hero</h3>
+          <img id="heroPreview" alt="Hero preview">
+        </div>
+        <div class="preview">
+          <h3>Card pages</h3>
+          <img id="frontPreview" alt="Front page preview">
+          <img id="backPreview" alt="Back page preview" style="margin-top:.6rem">
+          <p><a id="pdfLink" href="#" target="_blank">Open working PDF</a></p>
+        </div>
+      </div>
+      <p id="qaStatus" class="status"></p>
+      <div class="row" style="margin-top:1rem">
+        <button id="publishBtn" type="button">Publish recipe</button>
+      </div>
+      <p id="publishStatus" class="status"></p>
+    </section>
+
+    <section id="successPanel" class="panel hidden">
+      <h2 class="ok">Published <span id="publishedId"></span></h2>
+      <div class="row">
+        <a id="openRecipe" class="secondary" style="padding:.8rem 1rem;border-radius:.7rem;background:#ece5dc;color:var(--ink);text-decoration:none;font-weight:800" href="#">Open Recipe</a>
+        <a id="openCard" class="secondary" style="padding:.8rem 1rem;border-radius:.7rem;background:#ece5dc;color:var(--ink);text-decoration:none;font-weight:800" href="#">Open Printable Card</a>
+        <button id="addAnotherBtn" type="button">Add Another Recipe</button>
+      </div>
+      <p id="deployStatus" class="status"></p>
+    </section>
+  </main>
+  <script>
+    const AUTHED = {{AUTHED}};
+    let jobId = null;
+    let pollTimer = null;
+
+    function csrfToken() {
+      const match = document.cookie.match(/(?:^|; )bd_studio_csrf=([^;]*)/);
+      return match ? decodeURIComponent(match[1]) : '';
+    }
+
+    async function api(path, options = {}) {
+      const headers = Object.assign({ 'Content-Type': 'application/json' }, options.headers || {});
+      if (options.method && options.method !== 'GET') headers['X-CSRF-Token'] = csrfToken();
+      const res = await fetch(path, Object.assign({}, options, { headers }));
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.detail || data.error || res.statusText);
+      return data;
+    }
+
+    function show(id) { document.getElementById(id).classList.remove('hidden'); }
+    function hide(id) { document.getElementById(id).classList.add('hidden'); }
+
+    function boot() {
+      if (!AUTHED) {
+        show('loginPanel');
+        return;
+      }
+      show('createPanel');
+      show('logoutForm');
+    }
+
+    function lines(value) {
+      return value.split('\n').map(s => s.trim()).filter(Boolean);
+    }
+
+    function fillReview(job) {
+      const r = job.recipe;
+      document.getElementById('candidateId').textContent = job.candidate_id || '—';
+      document.getElementById('r_title').value = r.title || '';
+      document.getElementById('r_subtitle').value = r.subtitle || r.hook || '';
+      document.getElementById('r_serves').value = r.serves || '';
+      document.getElementById('r_prep').value = r.prep_time || '';
+      document.getElementById('r_cook').value = r.cook_time || '';
+      document.getElementById('r_total').value = r.total_time || '';
+      document.getElementById('r_cuisine').value = r.cuisine || '';
+      document.getElementById('r_protein').value = r.protein || '';
+      document.getElementById('r_tags').value = (r.tags || []).join(', ');
+      document.getElementById('r_allergens').value = r.allergens || '';
+      document.getElementById('r_nutrition').value = r.nutrition_display || r.nutrition || '';
+      document.getElementById('r_quote').value = r.bloody_dave_quote || '';
+      document.getElementById('r_credit').value = r.source_credit || '';
+      document.getElementById('r_source').textContent = r.source || '';
+      const a = document.getElementById('r_source_url');
+      a.href = r.source_url || '#';
+      a.textContent = r.source_url || '';
+      document.getElementById('r_buy').value = (r.buy || []).join('\n');
+      document.getElementById('r_pantry').value = (r.pantry || []).join('\n');
+      document.getElementById('r_method').value = (r.method || []).map(s => `${s.heading} | ${s.directions}`).join('\n');
+      const bust = Date.now();
+      document.getElementById('heroPreview').src = `/api/v1/jobs/${jobId}/preview/hero.jpg?${bust}`;
+      document.getElementById('frontPreview').src = `/api/v1/jobs/${jobId}/preview/front.png?${bust}`;
+      document.getElementById('backPreview').src = `/api/v1/jobs/${jobId}/preview/back.png?${bust}`;
+      document.getElementById('pdfLink').href = `/api/v1/jobs/${jobId}/preview/card.pdf?${bust}`;
+      const qa = job.qa;
+      document.getElementById('qaStatus').textContent = qa
+        ? (qa.passed ? 'QA passed' : `QA failed: ${(qa.errors || []).join('; ')}`)
+        : 'QA pending';
+      document.getElementById('qaStatus').className = qa && qa.passed ? 'ok' : 'error';
+    }
+
+    async function pollJob() {
+      if (!jobId) return;
+      const job = await api(`/api/v1/jobs/${jobId}`);
+      document.getElementById('jobStatus').textContent = job.status;
+      document.getElementById('progressText').textContent = job.progress || '';
+      document.getElementById('progressError').textContent = job.error || '';
+      hide('pasteBox');
+      hide('retryBtn');
+      if (job.status === 'NEEDS_PASTED_SOURCE') {
+        show('pasteBox');
+      } else if (job.status === 'FAILED') {
+        show('retryBtn');
+      } else if (job.status === 'READY_FOR_REVIEW') {
+        clearInterval(pollTimer);
+        hide('progressPanel');
+        show('reviewPanel');
+        fillReview(job);
+      } else if (job.status === 'PUBLISHED') {
+        clearInterval(pollTimer);
+        hide('reviewPanel');
+        hide('progressPanel');
+        show('successPanel');
+        document.getElementById('publishedId').textContent = job.published_id;
+        document.getElementById('openRecipe').href = job.recipe_url;
+        document.getElementById('openCard').href = job.card_url;
+        document.getElementById('deployStatus').textContent = `Repository commit: ${job.commit_sha}. Cloudflare: deployment pending / live.`;
+      }
+    }
+
+    document.getElementById('generateBtn').addEventListener('click', async () => {
+      const url = document.getElementById('url').value.trim();
+      const instructions = document.getElementById('instructions').value.trim();
+      const create_variant = document.getElementById('createVariant').checked;
+      document.getElementById('createStatus').textContent = 'Starting…';
+      try {
+        const res = await api('/api/v1/jobs', {
+          method: 'POST',
+          body: JSON.stringify({ url, instructions, create_variant })
+        });
+        jobId = res.job_id;
+        hide('createPanel');
+        show('progressPanel');
+        pollTimer = setInterval(pollJob, 1500);
+        pollJob();
+      } catch (err) {
+        document.getElementById('createStatus').textContent = err.message;
+        document.getElementById('createStatus').className = 'error';
+      }
+    });
+
+    document.getElementById('continuePasteBtn').addEventListener('click', async () => {
+      const pasted_source = document.getElementById('pastedSource').value;
+      await api(`/api/v1/jobs/${jobId}/continue-pasted`, {
+        method: 'POST',
+        body: JSON.stringify({ pasted_source })
+      });
+      hide('pasteBox');
+    });
+
+    document.getElementById('retryBtn').addEventListener('click', () => {
+      hide('progressPanel');
+      show('createPanel');
+    });
+
+    document.getElementById('saveEditsBtn').addEventListener('click', async () => {
+      const method = lines(document.getElementById('r_method').value).map(line => {
+        const [heading, ...rest] = line.split('|');
+        return { heading: (heading || '').trim(), directions: rest.join('|').trim() || (heading || '').trim() };
+      });
+      await api(`/api/v1/jobs/${jobId}/recipe`, {
+        method: 'PATCH',
+        body: JSON.stringify({
+          title: document.getElementById('r_title').value,
+          subtitle: document.getElementById('r_subtitle').value,
+          hook: document.getElementById('r_subtitle').value,
+          serves: document.getElementById('r_serves').value,
+          prep_time: document.getElementById('r_prep').value,
+          cook_time: document.getElementById('r_cook').value,
+          total_time: document.getElementById('r_total').value,
+          cuisine: document.getElementById('r_cuisine').value,
+          protein: document.getElementById('r_protein').value,
+          tags: document.getElementById('r_tags').value.split(',').map(s => s.trim()).filter(Boolean),
+          allergens: document.getElementById('r_allergens').value,
+          nutrition: document.getElementById('r_nutrition').value,
+          nutrition_display: document.getElementById('r_nutrition').value,
+          bloody_dave_quote: document.getElementById('r_quote').value,
+          source_credit: document.getElementById('r_credit').value,
+          buy: lines(document.getElementById('r_buy').value),
+          pantry: lines(document.getElementById('r_pantry').value),
+          method
+        })
+      });
+      document.getElementById('publishStatus').textContent = 'Edits saved. Re-run card/QA before publish.';
+    });
+
+    document.getElementById('regenImageBtn').addEventListener('click', async () => {
+      await api(`/api/v1/jobs/${jobId}/regenerate-image`, { method: 'POST', body: '{}' });
+      show('progressPanel');
+      hide('reviewPanel');
+      pollTimer = setInterval(pollJob, 1500);
+    });
+    document.getElementById('regenCardBtn').addEventListener('click', async () => {
+      await api(`/api/v1/jobs/${jobId}/render`, { method: 'POST', body: '{}' });
+      show('progressPanel');
+      hide('reviewPanel');
+      pollTimer = setInterval(pollJob, 1500);
+    });
+    document.getElementById('rerunQaBtn').addEventListener('click', async () => {
+      const job = await api(`/api/v1/jobs/${jobId}/qa`, { method: 'POST', body: '{}' });
+      fillReview(job);
+    });
+    document.getElementById('publishBtn').addEventListener('click', async () => {
+      document.getElementById('publishStatus').textContent = 'Publishing…';
+      try {
+        const res = await api(`/api/v1/jobs/${jobId}/publish`, { method: 'POST', body: '{}' });
+        hide('reviewPanel');
+        show('successPanel');
+        document.getElementById('publishedId').textContent = res.id;
+        document.getElementById('openRecipe').href = res.recipe_url;
+        document.getElementById('openCard').href = res.card_url;
+        document.getElementById('deployStatus').textContent = `Repository: ${res.repository}. Cloudflare: ${res.cloudflare}. Commit: ${res.commit_sha}`;
+      } catch (err) {
+        document.getElementById('publishStatus').textContent = err.message;
+        document.getElementById('publishStatus').className = 'error';
+      }
+    });
+    document.getElementById('addAnotherBtn').addEventListener('click', () => location.reload());
+
+    boot();
+  </script>
+</body>
+</html>
